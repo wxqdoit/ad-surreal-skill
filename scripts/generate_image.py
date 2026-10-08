@@ -2,6 +2,7 @@
 """
 generate_image.py - Universal direct image generation utility for ad-surreal-skill.
 Connects to the configured API endpoint to directly generate and save images.
+Supports curated commercial style presets.
 """
 
 import argparse
@@ -15,6 +16,74 @@ import urllib.request
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+
+STYLE_PRESETS = {
+    "haute-couture": {
+        "name": "法式高定静奢风 (Haute Couture Quiet Luxury)",
+        "prompt_wrapper": (
+            "Award-winning haute couture quiet luxury commercial fashion campaign. "
+            "Subject: {prompt}. "
+            "Background: seamless warm oatmeal and ecru studio backdrop, vast generous negative space taking up 70% of the composition. "
+            "Gentle directional softbox window light from top-left creating soft natural shadows. "
+            "In the upper-left corner, subtle fine-serif minimalist typography reads 'LUMIÈRE ÉTÉ'. "
+            "Hasselblad 8k fashion photography, timeless refined elegance, zero clutter."
+        )
+    },
+    "minimal-void": {
+        "name": "科技极简纯粹留白风 (Pure Negative-Space Minimalist)",
+        "prompt_wrapper": (
+            "Award-winning minimalist commercial advertising key visual poster. "
+            "Subject: {prompt} positioned elegantly in the lower-right third of the frame. "
+            "Background: seamless studio cyclorama in ultra-pale warm alabaster tone, vast expansive clean negative space occupying 75% of the frame with soft breathing room, "
+            "delicate subtle floor contact shadow, Profoto studio softbox lighting, crisp clean edges, Hasselblad commercial still life photography, Apple advertising aesthetic, 8k resolution, perfectly clean void, zero clutter."
+        )
+    },
+    "color-block": {
+        "name": "先锋现代撞色风 (Swiss Modern Graphic Color-Blocking)",
+        "prompt_wrapper": (
+            "Award-winning minimalist graphic commercial advertising key visual. "
+            "Dramatic bold color blocking contrast, background divided into two pristine solid minimalist blocks: vibrant electric cobalt blue and warm apricot peach. "
+            "Vast expansive negative space occupying 70% of the canvas. "
+            "Subject: {prompt} positioned with crisp clean shadow. "
+            "Minimalist Swiss graphic design aesthetic, pure void, zero clutter, 8k commercial photography."
+        )
+    },
+    "cinematic-noir": {
+        "name": "电影级暗调戏剧光影风 (Cinematic Chiaroscuro & Film Noir)",
+        "prompt_wrapper": (
+            "Award-winning cinematic commercial campaign photography. "
+            "Subject: {prompt}. "
+            "Atmosphere: dramatic chiaroscuro Rembrandt lighting, rich deep velvety shadows, delicate golden amber edge rim light, subtle atmospheric haze, "
+            "vast moody negative space in deep charcoal tones, 35mm anamorphic lens, high narrative drama, timeless elegance."
+        )
+    },
+    "sunlit-caustics": {
+        "name": "地中海日光焦散风 (Mediterranean Sunlit Caustics)",
+        "prompt_wrapper": (
+            "Luxury commercial campaign poster bathed in Mediterranean morning sun. "
+            "Subject: {prompt}. "
+            "Lighting: sunlit water caustics dancing gracefully on clean travertine limestone surfaces, warm golden hour glow, "
+            "airy expansive negative space in soft warm cream tones, high-key diffuse daylight, natural organic elegance."
+        )
+    },
+    "cyber-photon": {
+        "name": "先锋赛博光子风 (Midnight Cyber & Luminous Photon)",
+        "prompt_wrapper": (
+            "Futuristic commercial advertising key visual. "
+            "Subject: {prompt}. "
+            "Background: deep midnight void, dual-tone precision rim lights in electric cyan and glowing violet, subtle fiber-optic photon flow, "
+            "spacious clean dark negative space for high-tech branding, ultra-sharp reflections, 8k Octane render quality."
+        )
+    },
+    "botanical-surreal": {
+        "name": "空灵植物超现实风 (Ethereal Botanical Surrealism)",
+        "prompt_wrapper": (
+            "High-concept luxury commercial key visual. "
+            "Subject: {prompt} seamlessly harmonizing with translucent crystalline botanical flora and floating morning dew drops. "
+            "Background: ethereal soft pastel gradient mist, vast airy negative space, soft diffuse god rays, poetic dreamlike tranquility, 8k fine art photography."
+        )
+    }
+}
 
 def get_auth_config():
     """Retrieve base_url and api_key from config or environment."""
@@ -42,13 +111,18 @@ def get_auth_config():
 
     return base_url, api_key
 
-def generate_image(prompt, out_path, model="grok-imagine-image-2.0", size="1024x1024"):
+def generate_image(prompt, out_path, model="grok-imagine-image-2.0", size="1024x1024", style_key=None):
     base_url, api_key = get_auth_config()
     endpoint = f"{base_url}/images/generations"
 
+    final_prompt = prompt
+    if style_key and style_key.lower() in STYLE_PRESETS:
+        wrapper = STYLE_PRESETS[style_key.lower()]["prompt_wrapper"]
+        final_prompt = wrapper.format(prompt=prompt)
+
     payload = {
         "model": model,
-        "prompt": prompt,
+        "prompt": final_prompt,
         "n": 1,
         "size": size
     }
@@ -78,7 +152,6 @@ def generate_image(prompt, out_path, model="grok-imagine-image-2.0", size="1024x
                     out_path.write_bytes(img_bytes)
                     return True, str(out_path.resolve()), None
                 elif "url" in item:
-                    # Download image from URL
                     img_req = urllib.request.Request(item["url"])
                     with urllib.request.urlopen(img_req, timeout=60) as img_resp:
                         out_path.write_bytes(img_resp.read())
@@ -95,14 +168,15 @@ def generate_image(prompt, out_path, model="grok-imagine-image-2.0", size="1024x
 
 def main():
     parser = argparse.ArgumentParser(description="Universal image generator.")
-    parser.add_argument("prompt", help="Visual prompt description")
+    parser.add_argument("prompt", help="Visual prompt description or subject")
     parser.add_argument("--out", "-o", required=True, help="Output image file path")
+    parser.add_argument("--style", "-s", choices=list(STYLE_PRESETS.keys()), default=None, help="Curated style preset")
     parser.add_argument("--model", default="grok-imagine-image-2.0", help="Model name")
     parser.add_argument("--size", default="1024x1024", help="Image dimensions")
 
     args = parser.parse_args()
 
-    success, path, error = generate_image(args.prompt, args.out, model=args.model, size=args.size)
+    success, path, error = generate_image(args.prompt, args.out, model=args.model, size=args.size, style_key=args.style)
     if success:
         print(json.dumps({"success": True, "path": path}, ensure_ascii=False))
     else:

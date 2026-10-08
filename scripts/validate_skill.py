@@ -48,9 +48,10 @@ def validate():
 
     # 3. Check reference files mentioned in SKILL.md
     refs = [
+        "references/style-catalog.md",
         "references/minimal-negative-space-style.md",
-        "references/metaphor-archetypes.md",
         "references/portrait-blueprints.md",
+        "references/metaphor-archetypes.md",
         "references/industry-blueprints.md"
     ]
     for ref in refs:
