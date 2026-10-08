@@ -1,4 +1,4 @@
 interface:
-  display_name: "Ad Surreal"
-  short_description: "Directly generate high-concept commercial advertising key visuals and surreal campaign images"
-  default_prompt: "Use $ad-surreal-skill to directly generate a high-concept commercial key visual image for this product."
+  display_name: "Universal Image Generator"
+  short_description: "Directly generate and render high-quality images across portraits, commercial KVs, and art"
+  default_prompt: "Use $ad-surreal-skill to directly generate and render an image."

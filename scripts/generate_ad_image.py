@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 generate_ad_image.py - Direct image generation and asset management for ad-surreal-skill.
+Supports both Product-Hero and Commercial Portrait (人像大片) modes.
 """
 
 import argparse
@@ -53,6 +54,37 @@ INDUSTRY_PRESETS = {
     }
 }
 
+PORTRAIT_METAPHORS = {
+    "sensory_cocoon": {
+        "title": "通感声色结界 (The Acoustic Sensory Cocoon)",
+        "slogan": "隔绝喧嚣，自成深蓝宇宙",
+        "action": "high-fashion model wearing the product with eyes closed in serene meditative bliss, enveloped in a translucent glowing oceanic forcefield bubble, external chaotic sound particles smoothing into calm ripples upon touching the barrier",
+        "lighting": "cinematic dual-tone edge rim light (abyssal cyan and subtle amber gold), soft frontal fill light",
+        "copy_space": "ample clean negative space across the upper third for brand typography"
+    },
+    "symbiosis": {
+        "title": "身体与自然共生 (Biomechanical & Botanical Symbiosis)",
+        "slogan": "万物共生，自然之息",
+        "action": "chic editorial model, hair seamlessly flowing into cascading starry streams and blooming crystalline botanical flora around the neck and shoulders",
+        "lighting": "soft morning window light with gentle Tyndall rays and subtle water caustics",
+        "copy_space": "generous negative space on the left side reserved for editorial copy"
+    },
+    "levitation": {
+        "title": "失重浮空与动力学发丝 (Zero-G Levitation & Kinetic Fluidity)",
+        "slogan": "静止的瞬间，绝对的自由",
+        "action": "poised model levitating weightlessly in zero gravity, hair suspended gracefully like aquatic filaments, surrounded by suspended crystalline micro-droplets and floating product elements",
+        "lighting": "sculptural directional studio side light, high shutter speed freeze",
+        "copy_space": "clean minimalist dark void on top-left for headline"
+    },
+    "vitreous": {
+        "title": "物性裂变与琉璃面容 (Material Alchemy & Vitreous Skin)",
+        "slogan": "如玉凝脂，璀璨如钻",
+        "action": "editorial beauty close-up, flawless skin with translucent glass-like finish, a frozen crystalline teardrop transforming into multifaceted diamond near cheekbone, seamlessly interacting with the luxury product",
+        "lighting": "butterfly Paramount beauty lighting, sparkling catchlights in eyes",
+        "copy_space": "airy open negative space at the upper half for brand logo"
+    }
+}
+
 METAPHOR_TEMPLATES = {
     "scale": {
         "title": "尺度奇观 / 宏观地标 (Scale Distortion)",
@@ -84,39 +116,57 @@ def slugify(text):
     text = re.sub(r'[^\w\s-]', '', text.lower())
     return re.sub(r'[-\s]+', '-', text).strip('-_') or "campaign"
 
-def compile_commercial_prompt(product, usp, category="tech", metaphor_key="scale", aspect_ratio="3:4"):
+def compile_commercial_prompt(product, usp, category="tech", metaphor_key=None, aspect_ratio="3:4", is_portrait=False):
     preset = INDUSTRY_PRESETS.get(category.lower(), INDUSTRY_PRESETS["tech"])
-    metaphor = METAPHOR_TEMPLATES.get(metaphor_key.lower(), METAPHOR_TEMPLATES["scale"])
+    
+    if is_portrait:
+        meta_dict = PORTRAIT_METAPHORS
+        default_meta = "sensory_cocoon"
+    else:
+        meta_dict = METAPHOR_TEMPLATES
+        default_meta = "scale"
 
-    # Midjourney / Commercial DALL-E Prompt
-    prompt = (
-        f"Award-winning commercial key visual, hero shot of {product} illustrating {usp}, "
-        f"{metaphor['action']}, "
-        f"{preset['materials']}, "
-        f"{preset['lighting']}, "
-        f"{metaphor['copy_space']}, "
-        f"{preset['camera']} --ar {aspect_ratio} --v 6.1 --stylize 250 "
-        f"--no text, letters, watermarks, logo, blurry textures, cheap plastic render, extra debris"
-    )
+    key = metaphor_key if metaphor_key in meta_dict else default_meta
+    metaphor = meta_dict[key]
 
-    # Clean prompt for image generation APIs (without Midjourney parameter syntax)
-    clean_prompt = (
-        f"Award-winning commercial advertising key visual, hero product shot of {product}, "
-        f"symbolizing {usp}. {metaphor['action']}. "
-        f"Materials: {preset['materials']}. "
-        f"Lighting: {preset['lighting']}. "
-        f"{metaphor['copy_space']}. "
-        f"{preset['camera']}."
-    )
+    if is_portrait:
+        skin_clause = "photorealistic skin texture with visible natural pores and delicate subsurface scattering (SSS), authentic facial bone structure, no plastic AI smoothing, no airbrushed doll look, high-fashion editorial styling"
+        lighting = metaphor.get("lighting", preset["lighting"])
+        clean_prompt = (
+            f"Vogue editorial award-winning commercial campaign portrait. Hero subject: {metaphor['action']} featuring {product} illustrating {usp}. "
+            f"{skin_clause}. {preset['materials']}. {lighting}. "
+            f"{metaphor['copy_space']}. Shot on Hasselblad H6D-100c, 85mm f/2.8 commercial portrait lens, 8k resolution, cinematic color grading."
+        )
+        mj_prompt = (
+            f"Vogue editorial award-winning commercial advertising portrait, hero shot of {metaphor['action']} featuring {product}, "
+            f"symbolizing {usp}, {skin_clause}, {preset['materials']}, {lighting}, "
+            f"{metaphor['copy_space']}, shot on Hasselblad H6D-100c, 85mm f/2.8 lens, Octane 3D render fidelity, 8k resolution "
+            f"--ar {aspect_ratio} --v 6.1 --stylize 280 "
+            f"--no text, letters, watermarks, logo, extra fingers, deformed face, blurry eyes, plastic skin, cheap 3D render"
+        )
+    else:
+        clean_prompt = (
+            f"Award-winning commercial advertising key visual, hero product shot of {product}, "
+            f"symbolizing {usp}. {metaphor['action']}. "
+            f"Materials: {preset['materials']}. Lighting: {preset['lighting']}. "
+            f"{metaphor['copy_space']}. {preset['camera']}."
+        )
+        mj_prompt = (
+            f"Award-winning commercial key visual, hero shot of {product} illustrating {usp}, "
+            f"{metaphor['action']}, {preset['materials']}, {preset['lighting']}, "
+            f"{metaphor['copy_space']}, {preset['camera']} --ar {aspect_ratio} --v 6.1 --stylize 250 "
+            f"--no text, letters, watermarks, logo, blurry textures, cheap plastic render, extra debris"
+        )
 
-    return prompt, clean_prompt, metaphor, preset
+    return mj_prompt, clean_prompt, metaphor, preset
 
 def main():
     parser = argparse.ArgumentParser(description="Generate commercial key visual images and campaign prompts.")
     parser.add_argument("--product", required=True, help="Product name or description")
     parser.add_argument("--usp", required=True, help="Unique Selling Proposition / Core Benefit")
     parser.add_argument("--category", default="tech", choices=list(INDUSTRY_PRESETS.keys()), help="Industry category")
-    parser.add_argument("--metaphor", default="scale", choices=list(METAPHOR_TEMPLATES.keys()), help="Surreal metaphor archetype")
+    parser.add_argument("--metaphor", default=None, help="Surreal metaphor archetype key")
+    parser.add_argument("--portrait", action="store_true", help="Generate Commercial Portrait / Model wear KV")
     parser.add_argument("--ar", default="3:4", help="Aspect ratio (e.g. 3:4, 16:9, 1:1, 9:16)")
     parser.add_argument("--out-dir", default=None, help="Directory to save image and prompts")
     parser.add_argument("--generate", action="store_true", help="Directly invoke image generation")
@@ -124,18 +174,22 @@ def main():
     args = parser.parse_args()
 
     slug = slugify(args.product)
+    if args.portrait:
+        slug += "-portrait"
+
     out_dir = Path(args.out_dir) if args.out_dir else SKILL_ROOT / "output" / "campaigns" / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
     mj_prompt, clean_prompt, metaphor, preset = compile_commercial_prompt(
-        args.product, args.usp, args.category, args.metaphor, args.ar
+        args.product, args.usp, args.category, args.metaphor, args.ar, is_portrait=args.portrait
     )
 
     prompt_file = out_dir / "prompt.md"
     image_file = out_dir / "kv.png"
 
-    # Save prompt file
-    prompt_content = f"""# Commercial Key Visual Brief: {args.product}
+    mode_label = "Commercial Portrait Campaign (人像大片)" if args.portrait else "Product Hero Campaign (产品主视觉)"
+    prompt_content = f"""# Commercial Key Visual Brief: {args.product} ({mode_label})
+- **Mode**: {mode_label}
 - **Category**: {preset['name']}
 - **USP**: {args.usp}
 - **Metaphor Archetype**: {metaphor['title']}
@@ -158,7 +212,6 @@ def main():
     error_msg = None
 
     if args.generate:
-        # Check if imagegen script exists
         if IMAGEGEN_SCRIPT.exists() and os.environ.get("OPENAI_API_KEY"):
             cmd = [
                 "/Users/wxqdoit/.local/bin/uv", "run", "--with", "openai", "python3",
@@ -181,6 +234,7 @@ def main():
     output_data = {
         "product": args.product,
         "usp": args.usp,
+        "mode": mode_label,
         "category": preset["name"],
         "metaphor": metaphor["title"],
         "slogan": metaphor["slogan"],
