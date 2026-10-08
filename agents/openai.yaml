@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ad Surreal"
+  short_description: "Generate high-concept commercial advertising KVs and surreal visual metaphor campaigns"
+  default_prompt: "Use $ad-surreal-skill to develop a commercial advertising key visual campaign for this product."
